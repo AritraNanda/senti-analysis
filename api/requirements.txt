@@ -1,6 +1,6 @@
 fastapi
 uvicorn
 httpx
-sqlalchemy
-psycopg2-binary
+motor
+pymongo
 python-dotenv

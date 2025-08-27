@@ -3,29 +3,26 @@ from pydantic import BaseModel
 from datetime import datetime
 import httpx
 import os
-from sqlalchemy import create_engine, Column, Integer, String, Float, DateTime
-from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy.orm import sessionmaker
+from typing import List
+from motor.motor_asyncio import AsyncIOMotorClient
 from dotenv import load_dotenv
 
 load_dotenv()
 
-DATABASE_URL = os.getenv("DATABASE_URL", "postgresql://postgres:postgres@db:5432/sentiment")
+MONGODB_URL = os.getenv("MONGODB_URL", "mongodb://db:27017")
+DATABASE_NAME = os.getenv("DATABASE_NAME", "sentiment")
 ML_MODEL_URL = os.getenv("ML_MODEL_URL", "http://ml-model:8001/analyze")
 
-engine = create_engine(DATABASE_URL)
-SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
-Base = declarative_base()
+# MongoDB client with SSL handling for Atlas
+if "mongodb+srv" in MONGODB_URL:
+    # For MongoDB Atlas, add SSL parameters
+    client = AsyncIOMotorClient(MONGODB_URL, tls=True, tlsAllowInvalidCertificates=True)
+else:
+    # For local MongoDB
+    client = AsyncIOMotorClient(MONGODB_URL)
 
-class SentimentRequest(Base):
-    __tablename__ = "sentiment_requests"
-    id = Column(Integer, primary_key=True, index=True)
-    text = Column(String, nullable=False)
-    label = Column(String, nullable=False)
-    confidence = Column(Float, nullable=False)
-    timestamp = Column(DateTime, default=datetime.utcnow)
-
-Base.metadata.create_all(bind=engine)
+database = client[DATABASE_NAME]
+collection = database["sentiment_requests"]
 
 class AnalyzeRequest(BaseModel):
     text: str
@@ -33,6 +30,12 @@ class AnalyzeRequest(BaseModel):
 class AnalyzeResponse(BaseModel):
     label: str
     confidence: float
+
+class HistoryItem(BaseModel):
+    text: str
+    label: str
+    confidence: float
+    timestamp: datetime
 
 app = FastAPI(title="Sentiment Analysis API Service")
 
@@ -46,16 +49,20 @@ async def analyze(request: AnalyzeRequest):
         except Exception as e:
             raise HTTPException(status_code=502, detail=f"ML Model Service error: {e}")
 
-    # Log to DB
-    db = SessionLocal()
-    sentiment = SentimentRequest(
-        text=request.text,
-        label=data["label"],
-        confidence=data["confidence"],
-        timestamp=datetime.utcnow()
-    )
-    db.add(sentiment)
-    db.commit()
-    db.close()
+    # Log to MongoDB
+    sentiment_doc = {
+        "text": request.text,
+        "label": data["label"],
+        "confidence": data["confidence"],
+        "timestamp": datetime.utcnow()
+    }
+    await collection.insert_one(sentiment_doc)
 
     return AnalyzeResponse(label=data["label"], confidence=data["confidence"])
+
+@app.get("/history", response_model=List[HistoryItem])
+async def get_history(limit: int = 50):
+    """Get recent sentiment analysis history"""
+    cursor = collection.find({}, {"_id": 0}).sort("timestamp", -1).limit(limit)
+    history = await cursor.to_list(length=limit)
+    return history
