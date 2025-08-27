@@ -1,0 +1,180 @@
+# Istio Gateway for external traffic
+apiVersion: networking.istio.io/v1beta1
+kind: Gateway
+metadata:
+  name: sentiment-analyzer-gateway
+  namespace: sentiment-analyzer
+spec:
+  selector:
+    istio: ingressgateway
+  servers:
+  - port:
+      number: 80
+      name: http
+      protocol: HTTP
+    hosts:
+    - sentiment-analyzer.local
+    - api.sentiment-analyzer.local
+    - ml.sentiment-analyzer.local
+  - port:
+      number: 443
+      name: https
+      protocol: HTTPS
+    tls:
+      mode: SIMPLE
+      credentialName: sentiment-analyzer-tls
+    hosts:
+    - sentiment-analyzer.local
+    - api.sentiment-analyzer.local
+    - ml.sentiment-analyzer.local
+---
+# Virtual Service for intelligent routing
+apiVersion: networking.istio.io/v1beta1
+kind: VirtualService
+metadata:
+  name: sentiment-analyzer-vs
+  namespace: sentiment-analyzer
+spec:
+  hosts:
+  - sentiment-analyzer.local
+  - api.sentiment-analyzer.local
+  - ml.sentiment-analyzer.local
+  gateways:
+  - sentiment-analyzer-gateway
+  http:
+  # Route to frontend
+  - match:
+    - headers:
+        host:
+          exact: sentiment-analyzer.local
+      uri:
+        prefix: /
+    route:
+    - destination:
+        host: frontend-service
+        port:
+          number: 80
+  # Route to API with load balancing
+  - match:
+    - headers:
+        host:
+          exact: api.sentiment-analyzer.local
+      uri:
+        prefix: /analyze
+    route:
+    - destination:
+        host: api-service
+        port:
+          number: 8000
+    timeout: 30s
+    retries:
+      attempts: 3
+      perTryTimeout: 10s
+  # Route to ML model with circuit breaker
+  - match:
+    - headers:
+        host:
+          exact: ml.sentiment-analyzer.local
+      uri:
+        prefix: /analyze
+    route:
+    - destination:
+        host: ml-model-service
+        port:
+          number: 8001
+    timeout: 60s
+    retries:
+      attempts: 2
+      perTryTimeout: 30s
+---
+# Destination Rules for load balancing
+apiVersion: networking.istio.io/v1beta1
+kind: DestinationRule
+metadata:
+  name: api-service-dr
+  namespace: sentiment-analyzer
+spec:
+  host: api-service
+  trafficPolicy:
+    loadBalancer:
+      simple: LEAST_CONN  # Least connection load balancing
+    connectionPool:
+      tcp:
+        maxConnections: 100
+      http:
+        http1MaxPendingRequests: 50
+        maxRequestsPerConnection: 2
+    circuitBreaker:
+      consecutive5xxErrors: 5
+      intervalDuration: 30s
+      baseEjectionTime: 30s
+      maxEjectionPercent: 50
+---
+apiVersion: networking.istio.io/v1beta1
+kind: DestinationRule
+metadata:
+  name: ml-model-service-dr
+  namespace: sentiment-analyzer
+spec:
+  host: ml-model-service
+  trafficPolicy:
+    loadBalancer:
+      simple: ROUND_ROBIN  # Round robin for ML models
+    connectionPool:
+      tcp:
+        maxConnections: 50
+      http:
+        http1MaxPendingRequests: 20
+        maxRequestsPerConnection: 1
+        h2MaxRequests: 10
+    circuitBreaker:
+      consecutive5xxErrors: 3
+      intervalDuration: 60s
+      baseEjectionTime: 60s
+      maxEjectionPercent: 50
+    outlierDetection:
+      consecutiveGatewayErrors: 3
+      intervalDuration: 30s
+      baseEjectionTime: 30s
+---
+# Rate limiting for AI service protection
+apiVersion: networking.istio.io/v1beta1
+kind: EnvoyFilter
+metadata:
+  name: rate-limit-filter
+  namespace: sentiment-analyzer
+spec:
+  workloadSelector:
+    labels:
+      app: api-service
+  configPatches:
+  - applyTo: HTTP_FILTER
+    match:
+      context: SIDECAR_INBOUND
+      listener:
+        filterChain:
+          filter:
+            name: "envoy.filters.network.http_connection_manager"
+    patch:
+      operation: INSERT_BEFORE
+      value:
+        name: envoy.filters.http.local_ratelimit
+        typed_config:
+          "@type": type.googleapis.com/udpa.type.v1.TypedStruct
+          type_url: type.googleapis.com/envoy.extensions.filters.http.local_ratelimit.v3.LocalRateLimit
+          value:
+            stat_prefix: rate_limiter
+            token_bucket:
+              max_tokens: 100
+              tokens_per_fill: 100
+              fill_interval: 60s
+            filter_enabled:
+              runtime_key: rate_limit_enabled
+              default_value:
+                numerator: 100
+                denominator: HUNDRED
+            filter_enforced:
+              runtime_key: rate_limit_enforced
+              default_value:
+                numerator: 100
+                denominator: HUNDRED

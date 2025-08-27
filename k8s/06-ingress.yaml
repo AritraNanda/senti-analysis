@@ -1,0 +1,129 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: sentiment-analyzer-ingress
+  namespace: sentiment-analyzer
+  annotations:
+    nginx.ingress.kubernetes.io/rewrite-target: /
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    nginx.ingress.kubernetes.io/force-ssl-redirect: "true"
+    # Load balancing configurations
+    nginx.ingress.kubernetes.io/upstream-hash-by: "$binary_remote_addr"
+    nginx.ingress.kubernetes.io/load-balance: "round_robin"
+    # Rate limiting for AI service protection
+    nginx.ingress.kubernetes.io/rate-limit-requests-per-second: "50"
+    nginx.ingress.kubernetes.io/rate-limit-burst-multiplier: "5"
+    # CORS for web app
+    nginx.ingress.kubernetes.io/enable-cors: "true"
+    nginx.ingress.kubernetes.io/cors-allow-origin: "*"
+    nginx.ingress.kubernetes.io/cors-allow-methods: "GET, POST, OPTIONS"
+    # Caching for static assets
+    nginx.ingress.kubernetes.io/proxy-cache-valid: "200 302 10m"
+    nginx.ingress.kubernetes.io/proxy-cache-valid-error: "404 1m"
+spec:
+  ingressClassName: nginx
+  tls:
+  - hosts:
+    - sentiment-analyzer.local
+    - api.sentiment-analyzer.local
+    - ml.sentiment-analyzer.local
+    secretName: sentiment-analyzer-tls
+  rules:
+  # Frontend routing
+  - host: sentiment-analyzer.local
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: frontend-service
+            port:
+              number: 80
+  # API routing with load balancing
+  - host: api.sentiment-analyzer.local
+    http:
+      paths:
+      - path: /analyze
+        pathType: Prefix
+        backend:
+          service:
+            name: api-service
+            port:
+              number: 8000
+      - path: /history
+        pathType: Prefix
+        backend:
+          service:
+            name: api-service
+            port:
+              number: 8000
+      - path: /health
+        pathType: Prefix
+        backend:
+          service:
+            name: api-service
+            port:
+              number: 8000
+  # ML Model direct access (for testing)
+  - host: ml.sentiment-analyzer.local
+    http:
+      paths:
+      - path: /analyze
+        pathType: Prefix
+        backend:
+          service:
+            name: ml-model-service
+            port:
+              number: 8001
+      - path: /health
+        pathType: Prefix
+        backend:
+          service:
+            name: ml-model-service
+            port:
+              number: 8001
+---
+# SSL Certificate Secret
+apiVersion: v1
+kind: Secret
+metadata:
+  name: sentiment-analyzer-tls
+  namespace: sentiment-analyzer
+type: kubernetes.io/tls
+data:
+  # Base64 encoded certificate and key
+  # Generate with: kubectl create secret tls sentiment-analyzer-tls --cert=path/to/cert.crt --key=path/to/cert.key -n sentiment-analyzer
+  tls.crt: LS0tLS1CRUdJTi... # Your certificate here
+  tls.key: LS0tLS1CRUdJTi... # Your private key here
+---
+# Advanced Ingress for path-based routing
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: sentiment-analyzer-api-ingress
+  namespace: sentiment-analyzer
+  annotations:
+    nginx.ingress.kubernetes.io/rewrite-target: /$2
+    nginx.ingress.kubernetes.io/use-regex: "true"
+    # Circuit breaker pattern for ML service
+    nginx.ingress.kubernetes.io/proxy-next-upstream: "error timeout http_500 http_502 http_503"
+    nginx.ingress.kubernetes.io/proxy-next-upstream-tries: "3"
+    nginx.ingress.kubernetes.io/proxy-next-upstream-timeout: "10s"
+    # Request timeout for ML processing
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "30"
+    nginx.ingress.kubernetes.io/proxy-send-timeout: "30"
+spec:
+  ingressClassName: nginx
+  rules:
+  - host: sentiment-analyzer.local
+    http:
+      paths:
+      # API proxy through main domain
+      - path: /api(/|$)(.*)
+        pathType: Prefix
+        backend:
+          service:
+            name: api-service
+            port:
+              number: 8000

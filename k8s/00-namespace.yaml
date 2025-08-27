@@ -1,0 +1,23 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: sentiment-analyzer
+  labels:
+    name: sentiment-analyzer
+    environment: private-cloud
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: monitoring
+  labels:
+    name: monitoring
+    environment: private-cloud
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: istio-system
+  labels:
+    name: istio-system
+    environment: private-cloud
