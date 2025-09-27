@@ -1,7 +1,9 @@
 # 🚀 Private Cloud Setup Roadmap for Sentiment Analyzer
-## Complete Guide: From Development to Production-Ready Cloud Infrastructure
+## Complete Guide: OpenStack + Kubernetes Private Cloud Infrastructure
 
 ### **🎯 PROJECT OBJECTIVES**
+- **IaaS Layer**: OpenStack for compute, storage, and networking
+- **Container Orchestration**: Kubernetes running on OpenStack VMs
 - **Response Time**: < 2s for 95% of requests
 - **Latency**: < 500ms for API calls
 - **Throughput**: 100+ concurrent users
@@ -9,46 +11,120 @@
 - **Availability**: 99.9% uptime
 - **Scalability**: Auto-scaling based on load
 
+### **🏗️ ARCHITECTURE OVERVIEW**
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                    PRIVATE CLOUD INFRASTRUCTURE                  │
+├─────────────────────────────────────────────────────────────────┤
+│  OpenStack Layer (IaaS)                                        │
+│  ├── Nova (Compute)                                             │
+│  ├── Neutron (Networking)                                       │
+│  ├── Cinder (Block Storage)                                     │
+│  ├── Glance (Image Service)                                     │
+│  ├── Keystone (Identity)                                        │
+│  └── Horizon (Dashboard)                                        │
+├─────────────────────────────────────────────────────────────────┤
+│  Virtual Machines (Ubuntu 22.04)                               │
+│  ├── Master Node (Kubernetes Control Plane)                    │
+│  ├── Worker Node 1 (Application Workloads)                     │
+│  ├── Worker Node 2 (ML/AI Workloads)                          │
+│  └── Storage Node (Database & Monitoring)                      │
+├─────────────────────────────────────────────────────────────────┤
+│  Kubernetes Layer (CaaS)                                       │
+│  ├── Sentiment Analyzer Microservices                          │
+│  ├── Istio Service Mesh                                        │
+│  ├── Monitoring Stack (Prometheus/Grafana)                     │
+│  └── Load Balancing & Auto-scaling                             │
+└─────────────────────────────────────────────────────────────────┘
+```
+
 ---
 
 ## **📅 PHASE-BY-PHASE IMPLEMENTATION**
 
-### **PHASE 1: Infrastructure Foundation (Days 1-3)**
-**Objective**: Transform laptop into Ubuntu-based private cloud server
+### **PHASE 1: OpenStack Infrastructure Setup (Days 1-5)**
+**Objective**: Install and configure OpenStack as private cloud foundation
 
-#### **Day 1: Ubuntu Server Setup**
+#### **Day 1: Ubuntu Server Preparation**
 ```bash
-# 1. Install Ubuntu Server 22.04 LTS (VM or dual boot)
-# 2. Configure network, SSH, firewall
-# 3. Run prerequisites script
-chmod +x cloud-setup/00-prerequisites.sh
-./cloud-setup/00-prerequisites.sh
+# 1. Install Ubuntu Server 22.04 LTS (Minimum 16GB RAM, 100GB storage)
+# 2. Configure network interfaces (management + data networks)
+# 3. Install basic prerequisites
+chmod +x cloud-setup/00-openstack-prerequisites.sh
+./cloud-setup/00-openstack-prerequisites.sh
 sudo reboot
 ```
 
-#### **Day 2: Infrastructure Assessment**
+#### **Day 2: OpenStack DevStack Installation**
 ```bash
-# 1. Validate installations
-chmod +x cloud-setup/01-infrastructure-assessment.sh
-./cloud-setup/01-infrastructure-assessment.sh
+# 1. Install DevStack (All-in-One OpenStack)
+chmod +x cloud-setup/01-devstack-install.sh
+./cloud-setup/01-devstack-install.sh
 
-# 2. Configure K3s cluster
-sudo systemctl status k3s
-kubectl get nodes
+# 2. Configure basic networking
+# 3. Verify OpenStack services
 ```
 
-#### **Day 3: Base Configuration**
+#### **Day 3: OpenStack Configuration**
 ```bash
-# 1. Setup Docker registry (optional local registry)
-# 2. Configure DNS resolution
-# 3. SSL certificate generation
-# 4. Network policies setup
+# 1. Configure OpenStack networks
+# 2. Create flavors and images
+# 3. Setup security groups
+chmod +x cloud-setup/02-openstack-config.sh
+./cloud-setup/02-openstack-config.sh
 ```
 
-### **PHASE 2: Kubernetes Orchestration (Days 4-6)**
-**Objective**: Deploy microservices with Kubernetes
+#### **Day 4: VM Creation and Networking**
+```bash
+# 1. Create Kubernetes master and worker VMs
+# 2. Configure floating IPs
+# 3. Setup inter-VM networking
+chmod +x cloud-setup/03-vm-creation.sh
+./cloud-setup/03-vm-creation.sh
+```
 
-#### **Day 4: Namespace and Configuration**
+#### **Day 5: OpenStack Validation**
+```bash
+# 1. Test VM connectivity
+# 2. Validate storage and networking
+# 3. Access Horizon dashboard
+# 4. Prepare for Kubernetes installation
+```
+
+### **PHASE 2: Kubernetes Cluster Setup on OpenStack (Days 6-10)**
+**Objective**: Deploy Kubernetes cluster on OpenStack VMs
+
+#### **Day 6: Kubernetes Master Node Setup**
+```bash
+# 1. SSH into master VM via OpenStack
+# 2. Install Kubernetes control plane
+chmod +x cloud-setup/04-k8s-master-setup.sh
+./cloud-setup/04-k8s-master-setup.sh
+
+# 3. Initialize cluster
+sudo kubeadm init --pod-network-cidr=10.244.0.0/16
+```
+
+#### **Day 7: Worker Nodes Setup**
+```bash
+# 1. Install Kubernetes on worker VMs
+chmod +x cloud-setup/05-k8s-worker-setup.sh
+./cloud-setup/05-k8s-worker-setup.sh
+
+# 2. Join workers to cluster
+# 3. Install CNI (Flannel/Calico)
+kubectl apply -f https://raw.githubusercontent.com/flannel-io/flannel/master/Documentation/kube-flannel.yml
+```
+
+#### **Day 8: Kubernetes Networking & Storage**
+```bash
+# 1. Configure Kubernetes networking
+# 2. Setup persistent storage with Cinder
+# 3. Install MetalLB for LoadBalancer services
+kubectl apply -f k8s/metallb-config.yaml
+```
+
+#### **Day 9: Namespace and Configuration**
 ```bash
 # 1. Create namespaces
 kubectl apply -f k8s/00-namespace.yaml
@@ -61,28 +137,18 @@ kubectl get configmaps -n sentiment-analyzer
 kubectl get secrets -n sentiment-analyzer
 ```
 
-#### **Day 5: Database and ML Service**
+#### **Day 10: Core Services Deployment**
 ```bash
-# 1. Deploy MongoDB with persistence
-kubectl apply -f k8s/02-mongodb.yaml
+# 1. Deploy MongoDB with OpenStack Cinder volumes
+kubectl apply -f k8s/02-mongodb-openstack.yaml
 
-# 2. Deploy ML Model Service with auto-scaling
-kubectl apply -f k8s/03-ml-model.yaml
+# 2. Deploy ML Model Service with GPU support
+kubectl apply -f k8s/03-ml-model-openstack.yaml
 
-# 3. Verify deployments
-kubectl get pods -n sentiment-analyzer -w
-```
-
-#### **Day 6: API and Frontend Services**
-```bash
-# 1. Deploy API service
+# 3. Deploy API and Frontend services
 kubectl apply -f k8s/04-api.yaml
-
-# 2. Deploy Frontend with CDN simulation
 kubectl apply -f k8s/05-frontend.yaml
-
-# 3. Deploy Ingress with load balancing
-kubectl apply -f k8s/06-ingress.yaml
+kubectl apply -f k8s/06-ingress-openstack.yaml
 ```
 
 ### **PHASE 3: Monitoring and Observability (Days 7-9)**
@@ -203,11 +269,17 @@ chmod +x cloud-setup/deploy.sh
 ## **🛠️ TECHNOLOGY STACK**
 
 ### **Infrastructure Layer**
-- **OS**: Ubuntu Server 22.04 LTS
+- **Private Cloud**: OpenStack (DevStack)
+  - **Compute**: Nova (Virtual Machines)
+  - **Storage**: Cinder (Block Storage)
+  - **Networking**: Neutron (SDN)
+  - **Identity**: Keystone (Authentication)
+  - **Dashboard**: Horizon (Web UI)
+- **OS**: Ubuntu Server 22.04 LTS (Host + VMs)
 - **Container Runtime**: Docker + containerd
-- **Orchestration**: K3s (Lightweight Kubernetes)
+- **Orchestration**: Kubernetes (Full cluster on OpenStack VMs)
 - **Service Mesh**: Istio
-- **Load Balancer**: NGINX Ingress + Istio Gateway
+- **Load Balancer**: MetalLB + NGINX Ingress
 
 ### **Application Layer**
 - **Frontend**: React + Vite + Nginx
@@ -265,52 +337,82 @@ chmod +x cloud-setup/deploy.sh
 git clone <your-repo-url>
 cd Senti_anlyzr
 
-# Run complete deployment
-chmod +x cloud-setup/deploy.sh
-./cloud-setup/deploy.sh
+# Phase 1: OpenStack Setup
+chmod +x cloud-setup/00-openstack-prerequisites.sh
+./cloud-setup/00-openstack-prerequisites.sh
+# Reboot, then:
+chmod +x cloud-setup/01-devstack-install.sh
+./cloud-setup/01-devstack-install.sh
+
+# Phase 2: VM and Kubernetes Setup
+./cloud-setup/02-openstack-config.sh
+./cloud-setup/03-vm-creation.sh
+# SSH to VMs and setup Kubernetes cluster
+
+# Phase 3: Deploy Applications
+kubectl apply -f k8s/
 ```
 
 ### **Step-by-Step Deployment**
 ```bash
-# 1. Prerequisites
-./cloud-setup/00-prerequisites.sh && sudo reboot
+# 1. OpenStack Prerequisites
+./cloud-setup/00-openstack-prerequisites.sh && sudo reboot
 
-# 2. Infrastructure assessment
-./cloud-setup/01-infrastructure-assessment.sh
+# 2. Install OpenStack (DevStack)
+./cloud-setup/01-devstack-install.sh
 
-# 3. Deploy core services
+# 3. Configure OpenStack
+./cloud-setup/02-openstack-config.sh
+
+# 4. Create VMs for Kubernetes
+./cloud-setup/03-vm-creation.sh
+
+# 5. Setup Kubernetes Master (SSH to master VM)
+ssh ubuntu@<master-floating-ip>
+./cloud-setup/04-k8s-master-setup.sh
+
+# 6. Setup Worker Nodes (SSH to each worker)
+ssh ubuntu@<worker-floating-ip>
+./cloud-setup/05-k8s-worker-setup.sh
+# Run join command from master
+
+# 7. Deploy applications (from master or local with kubectl)
 kubectl apply -f k8s/00-namespace.yaml
 kubectl apply -f k8s/01-configmaps.yaml
-kubectl apply -f k8s/02-mongodb.yaml
-kubectl apply -f k8s/03-ml-model.yaml
+kubectl apply -f k8s/02-mongodb-openstack.yaml
+kubectl apply -f k8s/03-ml-model-openstack.yaml
 kubectl apply -f k8s/04-api.yaml
 kubectl apply -f k8s/05-frontend.yaml
-kubectl apply -f k8s/06-ingress.yaml
+kubectl apply -f k8s/06-ingress-openstack.yaml
 
-# 4. Deploy monitoring
+# 8. Deploy monitoring
 kubectl apply -f k8s/monitoring/
 
-# 5. Optional: Istio service mesh
-./cloud-setup/02-istio-setup.sh
-kubectl apply -f k8s/istio-traffic-management.yaml
-
-# 6. Performance testing
+# 9. Performance testing
 ./cloud-setup/03-performance-testing.sh
 ```
 
 ### **Access URLs**
 ```bash
-# Add to /etc/hosts:
-127.0.0.1 sentiment-analyzer.local
-127.0.0.1 api.sentiment-analyzer.local
-127.0.0.1 ml.sentiment-analyzer.local
-127.0.0.1 monitor.sentiment-analyzer.local
+# OpenStack Dashboard (Horizon)
+http://<openstack-host-ip>/dashboard
+# Username: admin, Password: admin123
+
+# Kubernetes Applications (via LoadBalancer IP)
+# Get LoadBalancer IP:
+kubectl get svc -n ingress-nginx ingress-nginx-loadbalancer
 
 # Access applications:
-# Frontend: http://sentiment-analyzer.local
-# API Docs: http://api.sentiment-analyzer.local/docs
+# Frontend: http://<loadbalancer-ip>/
+# API Docs: http://<loadbalancer-ip>/api/docs
+# ML Model: http://<loadbalancer-ip>/ml/docs
+
+# Monitoring (port-forward from any VM with kubectl access):
 # Grafana: kubectl port-forward -n monitoring svc/grafana-service 3000:3000
 # Prometheus: kubectl port-forward -n monitoring svc/prometheus-service 9090:9090
+
+# SSH to VMs:
+ssh ubuntu@<floating-ip> -i ~/.ssh/id_rsa
 ```
 
 ---

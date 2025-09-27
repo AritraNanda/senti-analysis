@@ -1,0 +1,175 @@
+# Ingress configuration optimized for OpenStack deployment
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: sentiment-analyzer-ingress-openstack
+  namespace: sentiment-analyzer
+  annotations:
+    # NGINX Ingress Controller configurations
+    nginx.ingress.kubernetes.io/rewrite-target: /
+    nginx.ingress.kubernetes.io/ssl-redirect: "false"  # Start with HTTP for OpenStack
+    # Load balancing configurations
+    nginx.ingress.kubernetes.io/upstream-hash-by: "$binary_remote_addr"
+    nginx.ingress.kubernetes.io/load-balance: "round_robin"
+    # Rate limiting for AI service protection
+    nginx.ingress.kubernetes.io/rate-limit-requests-per-second: "50"
+    nginx.ingress.kubernetes.io/rate-limit-burst-multiplier: "5"
+    # CORS for web app
+    nginx.ingress.kubernetes.io/enable-cors: "true"
+    nginx.ingress.kubernetes.io/cors-allow-origin: "*"
+    nginx.ingress.kubernetes.io/cors-allow-methods: "GET, POST, OPTIONS"
+    nginx.ingress.kubernetes.io/cors-allow-headers: "DNT,User-Agent,X-Requested-With,If-Modified-Since,Cache-Control,Content-Type,Range"
+    # Timeout configurations for ML processing
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "60"
+    nginx.ingress.kubernetes.io/proxy-send-timeout: "60"
+    nginx.ingress.kubernetes.io/proxy-connect-timeout: "10"
+    # Client body size for large requests
+    nginx.ingress.kubernetes.io/proxy-body-size: "10m"
+    # Custom error pages
+    nginx.ingress.kubernetes.io/custom-http-errors: "404,503"
+spec:
+  ingressClassName: nginx
+  rules:
+  # Main application access via LoadBalancer IP
+  - http:
+      paths:
+      # Frontend routing
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: frontend-service
+            port:
+              number: 80
+      # API routing with load balancing
+      - path: /api
+        pathType: Prefix
+        backend:
+          service:
+            name: api-service
+            port:
+              number: 8000
+      # Direct ML model access (for testing)
+      - path: /ml
+        pathType: Prefix
+        backend:
+          service:
+            name: ml-model-service-openstack
+            port:
+              number: 8001
+      # Health check endpoints
+      - path: /health
+        pathType: Prefix
+        backend:
+          service:
+            name: api-service
+            port:
+              number: 8000
+---
+# Service configuration for LoadBalancer (MetalLB)
+apiVersion: v1
+kind: Service
+metadata:
+  name: ingress-nginx-loadbalancer
+  namespace: ingress-nginx
+  annotations:
+    metallb.universe.tf/address-pool: default-pool
+spec:
+  type: LoadBalancer
+  selector:
+    app.kubernetes.io/name: ingress-nginx
+    app.kubernetes.io/instance: ingress-nginx
+    app.kubernetes.io/component: controller
+  ports:
+  - name: http
+    port: 80
+    protocol: TCP
+    targetPort: http
+  - name: https
+    port: 443
+    protocol: TCP
+    targetPort: https
+---
+# Advanced Ingress for path-based routing
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: sentiment-analyzer-api-routing
+  namespace: sentiment-analyzer
+  annotations:
+    nginx.ingress.kubernetes.io/rewrite-target: /$2
+    nginx.ingress.kubernetes.io/use-regex: "true"
+    # Circuit breaker pattern for ML service
+    nginx.ingress.kubernetes.io/proxy-next-upstream: "error timeout http_500 http_502 http_503"
+    nginx.ingress.kubernetes.io/proxy-next-upstream-tries: "3"
+    nginx.ingress.kubernetes.io/proxy-next-upstream-timeout: "10s"
+    # Custom upstream configuration
+    nginx.ingress.kubernetes.io/configuration-snippet: |
+      more_set_headers "X-OpenStack-Deployment: true";
+      more_set_headers "X-Load-Balancer: nginx-ingress";
+spec:
+  ingressClassName: nginx
+  rules:
+  - http:
+      paths:
+      # API endpoints with regex routing
+      - path: /api/v1(/|$)(.*)
+        pathType: Prefix
+        backend:
+          service:
+            name: api-service
+            port:
+              number: 8000
+      # ML model endpoints with timeout handling
+      - path: /ml/v1(/|$)(.*)
+        pathType: Prefix
+        backend:
+          service:
+            name: ml-model-service-openstack
+            port:
+              number: 8001
+---
+# Network Policy for security
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: sentiment-analyzer-netpol
+  namespace: sentiment-analyzer
+spec:
+  podSelector: {}
+  policyTypes:
+  - Ingress
+  - Egress
+  ingress:
+  # Allow ingress from ingress controller
+  - from:
+    - namespaceSelector:
+        matchLabels:
+          name: ingress-nginx
+  # Allow inter-service communication
+  - from:
+    - podSelector: {}
+  egress:
+  # Allow all egress (for external APIs, image pulls, etc.)
+  - {}
+---
+# Service Monitor for Prometheus (if using Prometheus Operator)
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: sentiment-analyzer-metrics
+  namespace: sentiment-analyzer
+  labels:
+    app: sentiment-analyzer
+spec:
+  selector:
+    matchLabels:
+      app: api-service
+  endpoints:
+  - port: http
+    path: /metrics
+    interval: 30s
+  - port: http
+    path: /metrics
+    interval: 30s
+    targetPort: 8001
