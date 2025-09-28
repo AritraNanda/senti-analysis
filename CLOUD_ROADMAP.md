@@ -1,77 +1,239 @@
-# 🚀 Private Cloud Setup Roadmap for Sentiment Analyzer
-## Complete Guide: OpenStack + Kubernetes Private Cloud Infrastructure
+# 🚀 Cloud Deployment Roadmap for Sentiment Analyzer
+## Lightweight Cloud Solutions for 4GB VMs with Multi-Device Architecture
 
-### **🎯 PROJECT OBJECTIVES**
-- **IaaS Layer**: OpenStack for compute, storage, and networking
-- **Container Orchestration**: Kubernetes running on OpenStack VMs
+### **🎯 PROJECT OBJECTIVES (UPDATED FOR LIMITED RESOURCES)**
+- **Target Hardware**: 4GB RAM, 20GB storage, 3-core VMs
+- **Multi-Device Setup**: Distributed architecture across multiple lightweight VMs
+- **Container Orchestration**: K3s, Docker Swarm, or OpenNebula
 - **Response Time**: < 2s for 95% of requests
 - **Latency**: < 500ms for API calls
-- **Throughput**: 100+ concurrent users
-- **Jitter**: < 100ms variance
-- **Availability**: 99.9% uptime
-- **Scalability**: Auto-scaling based on load
+- **Throughput**: 50+ concurrent users (optimized for resources)
+- **Availability**: 99.5% uptime
+- **Scalability**: Horizontal scaling across devices
 
-### **🏗️ ARCHITECTURE OVERVIEW**
+### **💡 DEPLOYMENT OPTIONS ANALYSIS**
+
+#### **Option 1: OpenNebula Multi-Device ⭐ Recommended for Learning**
+- **Use Case**: Enterprise cloud management experience
+- **Resource Usage**: 2GB RAM for OpenNebula + 2GB for VMs
+- **Architecture**: Frontend + Compute nodes
+- **Learning Value**: Full IaaS experience
+
+#### **Option 2: K3s Kubernetes Cluster ⭐⭐ Best for Production**
+- **Use Case**: Cloud-native application deployment
+- **Resource Usage**: 1GB RAM for K3s + apps
+- **Architecture**: Master + Worker nodes
+- **Learning Value**: Industry-standard container orchestration
+
+#### **Option 3: Docker Swarm ⭐⭐⭐ Simplest Setup**
+- **Use Case**: Simple container orchestration
+- **Resource Usage**: 500MB RAM for Swarm + apps
+- **Architecture**: Manager + Worker nodes
+- **Learning Value**: Container basics with orchestration
+
+### **🏗️ MULTI-DEVICE ARCHITECTURE OPTIONS**
+
+#### **OpenNebula Architecture**
 ```
-┌─────────────────────────────────────────────────────────────────┐
-│                    PRIVATE CLOUD INFRASTRUCTURE                  │
-├─────────────────────────────────────────────────────────────────┤
-│  OpenStack Layer (IaaS)                                        │
-│  ├── Nova (Compute)                                             │
-│  ├── Neutron (Networking)                                       │
-│  ├── Cinder (Block Storage)                                     │
-│  ├── Glance (Image Service)                                     │
-│  ├── Keystone (Identity)                                        │
-│  └── Horizon (Dashboard)                                        │
-├─────────────────────────────────────────────────────────────────┤
-│  Virtual Machines (Ubuntu 22.04)                               │
-│  ├── Master Node (Kubernetes Control Plane)                    │
-│  ├── Worker Node 1 (Application Workloads)                     │
-│  ├── Worker Node 2 (ML/AI Workloads)                          │
-│  └── Storage Node (Database & Monitoring)                      │
-├─────────────────────────────────────────────────────────────────┤
-│  Kubernetes Layer (CaaS)                                       │
-│  ├── Sentiment Analyzer Microservices                          │
-│  ├── Istio Service Mesh                                        │
-│  ├── Monitoring Stack (Prometheus/Grafana)                     │
-│  └── Load Balancing & Auto-scaling                             │
-└─────────────────────────────────────────────────────────────────┘
+┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
+│   Device 1      │    │   Device 2      │    │   Device N      │
+│   (4GB/20GB)    │    │   (4GB/20GB)    │    │   (4GB/20GB)    │
+│                 │    │                 │    │                 │
+│ OpenNebula      │◄──►│ Compute Node    │◄──►│ Compute Node    │
+│ Frontend +      │    │ (VMs only)      │    │ (VMs only)      │
+│ Compute         │    │                 │    │                 │
+│                 │    │                 │    │                 │
+│ • Web UI        │    │ • VM Hosting    │    │ • VM Hosting    │
+│ • VM Management │    │ • Auto Scale    │    │ • Load Balance  │
+│ • Load Balancer │    │                 │    │                 │
+└─────────────────┘    └─────────────────┘    └─────────────────┘
+```
+
+#### **K3s Kubernetes Architecture**
+```
+┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
+│   Device 1      │    │   Device 2      │    │   Device N      │
+│   (4GB/20GB)    │    │   (4GB/20GB)    │    │   (4GB/20GB)    │
+│                 │    │                 │    │                 │
+│ K3s Master      │◄──►│ K3s Worker      │◄──►│ K3s Worker      │
+│ + Worker        │    │                 │    │                 │
+│                 │    │                 │    │                 │
+│ • API Service   │    │ • ML Model      │    │ • Frontend      │
+│ • MongoDB       │    │ • ML Replicas   │    │ • Monitoring    │
+│ • Ingress LB    │    │                 │    │                 │
+└─────────────────┘    └─────────────────┘    └─────────────────┘
+```
+
+#### **Docker Swarm Architecture**
+```
+┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
+│   Device 1      │    │   Device 2      │    │   Device N      │
+│   (4GB/20GB)    │    │   (4GB/20GB)    │    │   (4GB/20GB)    │
+│                 │    │                 │    │                 │
+│ Swarm Manager   │◄──►│ Swarm Worker    │◄──►│ Swarm Worker    │
+│ + Worker        │    │                 │    │                 │
+│                 │    │                 │    │                 │
+│ • API Stack     │    │ • ML Stack      │    │ • Frontend      │
+│ • DB Stack      │    │ • Replicas      │    │ • Monitoring    │
+│ • Load Balancer │    │                 │    │                 │
+└─────────────────┘    └─────────────────┘    └─────────────────┘
 ```
 
 ---
 
-## **📅 PHASE-BY-PHASE IMPLEMENTATION**
+## **📅 DEPLOYMENT IMPLEMENTATION GUIDE**
 
-### **PHASE 1: OpenStack Infrastructure Setup (Days 1-5)**
-**Objective**: Install and configure OpenStack as private cloud foundation
+### **🚀 OPTION 1: OpenNebula Multi-Device Setup**
 
-#### **Day 1: Ubuntu Server Preparation**
+#### **Device 1 (Frontend + Compute Node)**
 ```bash
-# 1. Install Ubuntu Server 22.04 LTS (Minimum 16GB RAM, 100GB storage)
-# 2. Configure network interfaces (management + data networks)
-# 3. Install basic prerequisites
-chmod +x cloud-setup/00-openstack-prerequisites.sh
-./cloud-setup/00-openstack-prerequisites.sh
-sudo reboot
+# Prerequisites
+sudo apt update
+sudo apt install -y ruby ruby-dev make gcc g++ sqlite3 libsqlite3-dev lsb-release
+
+# Add OpenNebula repository
+wget -q -O- https://downloads.opennebula.io/repo/repo2.key | sudo apt-key add -
+echo "deb https://downloads.opennebula.io/repo/6.8/Ubuntu/22.04 stable opennebula" | sudo tee /etc/apt/sources.list.d/opennebula.list
+sudo apt update
+
+# Install OpenNebula Frontend + Compute
+sudo apt install -y opennebula opennebula-sunstone opennebula-gate opennebula-flow opennebula-node opennebula-rubygems
+
+# Enable and start services
+sudo systemctl enable opennebula opennebula-sunstone opennebula-gate opennebula-flow
+sudo systemctl start opennebula opennebula-sunstone opennebula-gate opennebula-flow
+
+# Configure SSH for oneadmin
+sudo -u oneadmin ssh-keygen -t rsa -N "" -f /var/lib/one/.ssh/id_rsa
 ```
 
-#### **Day 2: OpenStack DevStack Installation**
+#### **Device 2+ (Compute Nodes Only)**
 ```bash
-# 1. Install DevStack (All-in-One OpenStack)
-chmod +x cloud-setup/01-devstack-install.sh
-./cloud-setup/01-devstack-install.sh
+# Prerequisites
+sudo apt update
+sudo apt install -y ruby ruby-dev make gcc g++ sqlite3 libsqlite3-dev lsb-release
 
-# 2. Configure basic networking
-# 3. Verify OpenStack services
+# Add OpenNebula repository  
+wget -q -O- https://downloads.opennebula.io/repo/repo2.key | sudo apt-key add -
+echo "deb https://downloads.opennebula.io/repo/6.8/Ubuntu/22.04 stable opennebula" | sudo tee /etc/apt/sources.list.d/opennebula.list
+sudo apt update
+
+# Install ONLY compute node components
+sudo apt install -y opennebula-node opennebula-rubygems
+
+# Add oneadmin user and configure SSH
+sudo adduser oneadmin
+sudo mkdir -p /var/lib/one/.ssh
+sudo chown oneadmin:oneadmin /var/lib/one/.ssh
+
+# Copy public key from Device 1 to enable passwordless SSH
+# On Device 1: sudo cat /var/lib/one/.ssh/id_rsa.pub
+# On Device 2+: echo "PUBLIC_KEY" | sudo tee /var/lib/one/.ssh/authorized_keys
 ```
 
-#### **Day 3: OpenStack Configuration**
+#### **Node Registration**
 ```bash
-# 1. Configure OpenStack networks
-# 2. Create flavors and images
-# 3. Setup security groups
-chmod +x cloud-setup/02-openstack-config.sh
-./cloud-setup/02-openstack-config.sh
+# On Device 1 (Frontend), register compute nodes:
+sudo -u oneadmin onehost create DEVICE2_HOSTNAME -i kvm -v kvm
+sudo -u oneadmin onehost create DEVICE3_HOSTNAME -i kvm -v kvm
+
+# Check nodes status
+sudo -u oneadmin onehost list
+
+# Access Web Interface: http://DEVICE1_IP:9869
+# Username: oneadmin
+# Password: sudo cat /var/lib/one/.one/one_auth
+```
+
+### **🚀 OPTION 2: K3s Kubernetes Cluster** ⭐⭐ **RECOMMENDED**
+
+#### **Device 1 (K3s Master Node)**
+```bash
+# Install K3s master
+curl -sfL https://get.k3s.io | sh -s - --write-kubeconfig-mode 644
+
+# Wait for node to be ready
+sudo k3s kubectl get nodes
+
+# Get join token for worker nodes
+sudo cat /var/lib/rancher/k3s/server/node-token
+
+# Get master IP address
+ip addr show | grep 'inet ' | grep -v '127.0.0.1'
+```
+
+#### **Device 2+ (K3s Worker Nodes)**
+```bash
+# Join workers to cluster (replace MASTER_IP and TOKEN)
+curl -sfL https://get.k3s.io | K3S_URL=https://MASTER_IP:6443 K3S_TOKEN=TOKEN sh -
+
+# Verify node joined (from master)
+sudo k3s kubectl get nodes
+```
+
+#### **Deploy Sentiment Analyzer**
+```bash
+# From Device 1 (Master), deploy the application
+sudo k3s kubectl apply -f k8s/00-namespace.yaml
+sudo k3s kubectl apply -f k8s/01-configmaps.yaml
+sudo k3s kubectl apply -f k8s/02-mongodb.yaml
+sudo k3s kubectl apply -f k8s/03-ml-model.yaml
+sudo k3s kubectl apply -f k8s/04-api.yaml
+sudo k3s kubectl apply -f k8s/05-frontend.yaml
+sudo k3s kubectl apply -f k8s/06-ingress.yaml
+
+# Check deployment status
+sudo k3s kubectl get pods -n sentiment-analyzer
+sudo k3s kubectl get svc -n sentiment-analyzer
+
+# Get access URL
+sudo k3s kubectl get ingress -n sentiment-analyzer
+```
+
+### **🚀 OPTION 3: Docker Swarm** ⭐⭐⭐ **SIMPLEST**
+
+#### **Device 1 (Swarm Manager)**
+```bash
+# Install Docker
+sudo apt update
+sudo apt install -y docker.io docker-compose
+sudo usermod -aG docker $USER
+# Log out and back in, or run: newgrp docker
+
+# Initialize Docker Swarm
+docker swarm init --advertise-addr $(ip route get 8.8.8.8 | awk '{print $7; exit}')
+
+# Note the join token and command shown
+```
+
+#### **Device 2+ (Swarm Workers)**
+```bash
+# Install Docker
+sudo apt update
+sudo apt install -y docker.io
+sudo usermod -aG docker $USER
+# Log out and back in
+
+# Join the swarm (use command from manager output)
+docker swarm join --token SWMTKN-1-... MANAGER_IP:2377
+
+# Verify from manager
+docker node ls
+```
+
+#### **Deploy Sentiment Analyzer Stack**
+```bash
+# From Device 1 (Manager), deploy using existing docker-compose
+docker stack deploy -c docker-compose.yml sentiment-app
+
+# Check services
+docker service ls
+docker service ps sentiment-app_api
+docker service ps sentiment-app_ml-model
+
+# Scale services across nodes
+docker service scale sentiment-app_api=3
+docker service scale sentiment-app_ml-model=2
 ```
 
 #### **Day 4: VM Creation and Networking**
@@ -329,28 +491,43 @@ chmod +x cloud-setup/deploy.sh
 
 ---
 
-## **🔧 DEPLOYMENT COMMANDS**
+## **🔧 QUICK DEPLOYMENT COMMANDS**
 
-### **Quick Start (Complete Deployment)**
+### **OpenNebula Quick Start**
 ```bash
-# Clone repository
-git clone <your-repo-url>
-cd Senti_anlyzr
+# Device 1 (Frontend + Compute)
+sudo apt install -y opennebula opennebula-sunstone opennebula-gate opennebula-flow opennebula-node opennebula-rubygems
+sudo systemctl enable --now opennebula opennebula-sunstone opennebula-gate opennebula-flow
 
-# Phase 1: OpenStack Setup
-chmod +x cloud-setup/00-openstack-prerequisites.sh
-./cloud-setup/00-openstack-prerequisites.sh
-# Reboot, then:
-chmod +x cloud-setup/01-devstack-install.sh
-./cloud-setup/01-devstack-install.sh
+# Device 2+ (Compute Only)  
+sudo apt install -y opennebula-node opennebula-rubygems
 
-# Phase 2: VM and Kubernetes Setup
-./cloud-setup/02-openstack-config.sh
-./cloud-setup/03-vm-creation.sh
-# SSH to VMs and setup Kubernetes cluster
+# Access: http://DEVICE1_IP:9869 (oneadmin / check /var/lib/one/.one/one_auth)
+```
 
-# Phase 3: Deploy Applications
-kubectl apply -f k8s/
+### **K3s Quick Start** ⭐ **RECOMMENDED**
+```bash
+# Device 1 (Master)
+curl -sfL https://get.k3s.io | sh -s - --write-kubeconfig-mode 644
+sudo cat /var/lib/rancher/k3s/server/node-token  # Get token
+
+# Device 2+ (Workers)
+curl -sfL https://get.k3s.io | K3S_URL=https://MASTER_IP:6443 K3S_TOKEN=TOKEN sh -
+
+# Deploy app
+sudo k3s kubectl apply -f k8s/
+```
+
+### **Docker Swarm Quick Start** ⭐⭐⭐ **SIMPLEST**
+```bash
+# Device 1 (Manager)
+docker swarm init --advertise-addr $(ip route get 8.8.8.8 | awk '{print $7; exit}')
+
+# Device 2+ (Workers)
+docker swarm join --token TOKEN MANAGER_IP:2377
+
+# Deploy app
+docker stack deploy -c docker-compose.yml sentiment-app
 ```
 
 ### **Step-by-Step Deployment**
@@ -392,27 +569,52 @@ kubectl apply -f k8s/monitoring/
 ./cloud-setup/03-performance-testing.sh
 ```
 
-### **Access URLs**
+### **Access URLs & Management**
+
+#### **OpenNebula Access**
 ```bash
-# OpenStack Dashboard (Horizon)
-http://<openstack-host-ip>/dashboard
-# Username: admin, Password: admin123
+# Web Interface: http://DEVICE1_IP:9869
+# Username: oneadmin
+# Password: sudo cat /var/lib/one/.one/one_auth
 
-# Kubernetes Applications (via LoadBalancer IP)
-# Get LoadBalancer IP:
-kubectl get svc -n ingress-nginx ingress-nginx-loadbalancer
+# CLI Commands:
+sudo -u oneadmin onehost list          # List compute nodes
+sudo -u oneadmin onevm list            # List VMs
+sudo -u oneadmin oneimage list         # List images
+```
 
-# Access applications:
-# Frontend: http://<loadbalancer-ip>/
-# API Docs: http://<loadbalancer-ip>/api/docs
-# ML Model: http://<loadbalancer-ip>/ml/docs
+#### **K3s Access**
+```bash
+# From master node:
+sudo k3s kubectl get nodes                    # List cluster nodes
+sudo k3s kubectl get pods -A                  # All pods
+sudo k3s kubectl get svc -n sentiment-analyzer # Services
 
-# Monitoring (port-forward from any VM with kubectl access):
-# Grafana: kubectl port-forward -n monitoring svc/grafana-service 3000:3000
-# Prometheus: kubectl port-forward -n monitoring svc/prometheus-service 9090:9090
+# Application URLs (get ingress IP):
+sudo k3s kubectl get ingress -n sentiment-analyzer
+# Frontend: http://INGRESS_IP/
+# API: http://INGRESS_IP/api/docs
+```
 
-# SSH to VMs:
-ssh ubuntu@<floating-ip> -i ~/.ssh/id_rsa
+#### **Docker Swarm Access**
+```bash
+# From manager node:
+docker node ls                              # List swarm nodes
+docker service ls                           # List services
+docker service ps sentiment-app_api        # Service details
+
+# Application URLs:
+docker service inspect sentiment-app_api --format='{{.Endpoint.Ports}}'
+# Access via any node IP on published ports
+```
+
+#### **Resource Monitoring**
+```bash
+# System resources on each device:
+htop                    # CPU and memory usage
+df -h                   # Disk usage
+docker stats            # Container resource usage (Docker/K3s)
+sudo k3s kubectl top nodes  # K3s node resources
 ```
 
 ---

@@ -202,6 +202,70 @@ Senti_anlyzr/
 └── docker-compose.yml   # Docker setup (optional)
 ```
 
+## ☁️ Cloud Deployment Options
+
+### Option 1: OpenNebula Multi-Device Setup ⭐ **Recommended for Learning**
+
+**Architecture**: Frontend Node + Multiple Compute Nodes
+
+```
+Device 1 (4GB/20GB): OpenNebula Frontend + Compute Node
+Device 2+ (4GB/20GB): OpenNebula Compute Nodes Only
+```
+
+**Installation:**
+
+```bash
+# Device 1 (Frontend + Compute Node)
+sudo apt update
+sudo apt install -y ruby ruby-dev make gcc g++ sqlite3 libsqlite3-dev
+wget -q -O- https://downloads.opennebula.io/repo/repo2.key | sudo apt-key add -
+echo "deb https://downloads.opennebula.io/repo/6.8/Ubuntu/22.04 stable opennebula" | sudo tee /etc/apt/sources.list.d/opennebula.list
+sudo apt update
+
+sudo apt install -y opennebula opennebula-sunstone opennebula-gate opennebula-flow opennebula-node opennebula-rubygems
+sudo systemctl enable opennebula opennebula-sunstone opennebula-gate opennebula-flow
+sudo systemctl start opennebula opennebula-sunstone opennebula-gate opennebula-flow
+
+# Device 2+ (Compute Nodes Only)
+sudo apt update
+sudo apt install -y ruby ruby-dev make gcc g++ sqlite3 libsqlite3-dev
+wget -q -O- https://downloads.opennebula.io/repo/repo2.key | sudo apt-key add -
+echo "deb https://downloads.opennebula.io/repo/6.8/Ubuntu/22.04 stable opennebula" | sudo tee /etc/apt/sources.list.d/opennebula.list
+sudo apt update
+
+sudo apt install -y opennebula-node opennebula-rubygems
+```
+
+**Access**: `http://DEVICE1_IP:9869` (Username: oneadmin, Password: `sudo cat /var/lib/one/.one/one_auth`)
+
+### Option 2: K3s Kubernetes Cluster ⭐ **Best for Production**
+
+```bash
+# Device 1 (Master)
+curl -sfL https://get.k3s.io | sh -s - --write-kubeconfig-mode 644
+sudo cat /var/lib/rancher/k3s/server/node-token  # Get token for workers
+
+# Device 2+ (Workers)
+curl -sfL https://get.k3s.io | K3S_URL=https://MASTER_IP:6443 K3S_TOKEN=TOKEN sh -
+
+# Deploy app
+kubectl apply -f k8s/
+```
+
+### Option 3: Docker Swarm ⭐ **Simplest**
+
+```bash
+# Device 1 (Manager)
+docker swarm init --advertise-addr DEVICE1_IP
+
+# Device 2+ (Workers)
+docker swarm join --token TOKEN DEVICE1_IP:2377
+
+# Deploy app
+docker stack deploy -c docker-compose.yml sentiment-app
+```
+
 ## 🚀 Production Deployment
 
 For production deployment, consider:
