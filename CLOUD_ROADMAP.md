@@ -91,9 +91,9 @@
 sudo apt update
 sudo apt install -y ruby ruby-dev make gcc g++ sqlite3 libsqlite3-dev lsb-release
 
-# Add OpenNebula repository
-wget -q -O- https://downloads.opennebula.io/repo/repo2.key | sudo apt-key add -
-echo "deb https://downloads.opennebula.io/repo/6.8/Ubuntu/22.04 stable opennebula" | sudo tee /etc/apt/sources.list.d/opennebula.list
+# Add OpenNebula repository (modern approach)
+wget -q -O- https://downloads.opennebula.io/repo/repo2.key | sudo gpg --dearmor -o /usr/share/keyrings/opennebula-archive-keyring.gpg
+echo "deb [signed-by=/usr/share/keyrings/opennebula-archive-keyring.gpg] https://downloads.opennebula.io/repo/6.8/Ubuntu/22.04 stable opennebula" | sudo tee /etc/apt/sources.list.d/opennebula.list
 sudo apt update
 
 # Install OpenNebula Frontend + Compute
@@ -113,9 +113,9 @@ sudo -u oneadmin ssh-keygen -t rsa -N "" -f /var/lib/one/.ssh/id_rsa
 sudo apt update
 sudo apt install -y ruby ruby-dev make gcc g++ sqlite3 libsqlite3-dev lsb-release
 
-# Add OpenNebula repository  
-wget -q -O- https://downloads.opennebula.io/repo/repo2.key | sudo apt-key add -
-echo "deb https://downloads.opennebula.io/repo/6.8/Ubuntu/22.04 stable opennebula" | sudo tee /etc/apt/sources.list.d/opennebula.list
+# Add OpenNebula repository (modern approach)
+wget -q -O- https://downloads.opennebula.io/repo/repo2.key | sudo gpg --dearmor -o /usr/share/keyrings/opennebula-archive-keyring.gpg
+echo "deb [signed-by=/usr/share/keyrings/opennebula-archive-keyring.gpg] https://downloads.opennebula.io/repo/6.8/Ubuntu/22.04 stable opennebula" | sudo tee /etc/apt/sources.list.d/opennebula.list
 sudo apt update
 
 # Install ONLY compute node components
