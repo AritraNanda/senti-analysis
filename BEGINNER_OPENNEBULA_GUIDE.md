@@ -229,7 +229,7 @@ sudo cat /var/lib/one/.one/one_auth
 
 ### 7.3 Access Web Interface
 1. Open your web browser
-2. Go to: `http://YOUR_IP_ADDRESS:9869` (replace YOUR_IP_ADDRESS)
+2. Go to: `http://localhost:9869` (replace YOUR_IP_ADDRESS)
 3. Login with:
    - **Username:** `oneadmin`
    - **Password:** (the password from step 7.2)
