@@ -285,10 +285,41 @@ ping -c 20 localhost   # from Windows to localhost:8080 won’t ICMP, but you ca
 ---
 
 ## Troubleshooting cheat‑sheet
-- Sunstone opens but instances fail: check host added with `-i lxd -v lxd` and reaches MONITORED.
-- LB returns 502: ensure both app ports 8000 are open and containers are running; check `sudo lxc exec <app> -- docker logs sa-api`.
-- Can’t reach from Windows: recheck LXD proxy (30080) and VirtualBox NAT forwarding (8080→30080); ensure Sunstone/lb not bound to 127.0.0.1 only.
-- Slow build on first run: Docker image builds pull Python deps; subsequent runs are faster.
+- Sunstone opens but instances fail: ensure the compute host was added with `-i lxd -v lxd` and reaches MONITORED.
+- Host shows ERROR after adding LXD host:
+  1) Verify oneadmin can talk to LXD (group membership) and restart oned if you just added the group:
+    ```bash
+    getent group lxd | grep oneadmin || sudo usermod -aG lxd oneadmin
+    sudo systemctl restart opennebula    # only if you just added oneadmin to lxd
+    ```
+  2) Check LXD is running and its socket is accessible:
+    ```bash
+    sudo snap services lxd
+    getfacl /var/snap/lxd/common/lxd/unix.socket 2>/dev/null | sed -n '1,10p'
+    ```
+  3) Prefer using the host VM IP when adding the host if name resolution is flaky (Sunstone: Hosts > + > Type=LXD, Hostname=<VM IP>). If you created it via CLI with a bad name, delete and re-add:
+    ```bash
+    sudo -u oneadmin onehost list
+    sudo -u oneadmin onehost delete <ID>
+    sudo -u oneadmin onehost create "$(hostname -I | awk '{print $1}')" -i lxd -v lxd
+    ```
+  4) Inspect why it errored:
+    ```bash
+    sudo -u oneadmin onehost show <ID> | sed -n '1,120p'
+    sudo tail -n 200 /var/log/one/oned.log | sed -n '1,200p'
+    ```
+  5) If you changed LXD storage from ZFS to dir, ensure default profile uses the right pool and network:
+    ```bash
+    lxc profile show default | sed -n '1,120p'
+    ```
+- LB returns 502: ensure both app ports 8000 are open and services are running inside each container:
+  ```bash
+  sudo lxc list | grep one-         # find app instance names
+  sudo lxc exec <app-instance> -- systemctl status sa-api sa-ml -l --no-pager
+  sudo lxc exec <app-instance> -- journalctl -u sa-api -u sa-ml -n 200 --no-pager
+  ```
+- Can’t reach from Windows: recheck LXD proxy (30080) and VirtualBox NAT forwarding (8080→30080); ensure the proxy listens on 0.0.0.0 and LB binds to :80.
+- First run is slow: Python dependencies and the ML model are downloaded on first boot; subsequent runs are much faster.
 
 ---
 
