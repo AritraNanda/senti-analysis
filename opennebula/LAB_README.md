@@ -50,7 +50,7 @@ sudo -u oneadmin onehost list
   - Path/Name: `ubuntu:22.04` (LXD image alias)
   - Save
 
-### A3) Create App template (LXD) with cloud‑init
+### A3) Create App template (LXD) with cloud‑init (no Docker)
 In Sunstone: Templates > VM Templates > + Create
 - Type/Hypervisor: LXD
 - OS/IMAGE: `ubuntu:22.04`
@@ -67,35 +67,84 @@ User‑data (copy/paste):
 #cloud-config
 package_update: true
 packages:
-  - docker.io
   - git
   - ca-certificates
   - curl
+  - python3
+  - python3-pip
+  - python3-venv
+write_files:
+  - path: /etc/default/senti
+    permissions: '0644'
+    content: |
+      MONGODB_URL="${MONGODB_URL:-}"
+      DATABASE_NAME="${DATABASE_NAME:-sentiment}"
+      ML_MODEL_URL="${ML_MODEL_URL:-http://127.0.0.1:8001/analyze}"
+  - path: /etc/systemd/system/sa-ml.service
+    permissions: '0644'
+    content: |
+      [Unit]
+      Description=Senti ML Model Service
+      After=network.target
+
+      [Service]
+      Type=simple
+      User=ubuntu
+      WorkingDirectory=/opt/senti/ml-model
+      ExecStart=/opt/senti/ml-model/.venv/bin/uvicorn main:app --host 0.0.0.0 --port 8001
+      Restart=always
+      RestartSec=3
+
+      [Install]
+      WantedBy=multi-user.target
+  - path: /etc/systemd/system/sa-api.service
+    permissions: '0644'
+    content: |
+      [Unit]
+      Description=Senti API Service
+      After=network.target
+
+      [Service]
+      Type=simple
+      User=ubuntu
+      WorkingDirectory=/opt/senti/api
+      EnvironmentFile=/etc/default/senti
+      ExecStart=/opt/senti/api/.venv/bin/uvicorn main:app --host 0.0.0.0 --port 8000
+      Restart=always
+      RestartSec=3
+
+      [Install]
+      WantedBy=multi-user.target
 runcmd:
   - |
     set -eux
-    systemctl enable --now docker || true
-    usermod -aG docker ubuntu || true
-  - |
+    # Fetch source
     if [ ! -d /opt/senti ]; then
       git clone https://github.com/AritraNanda/senti-analysis.git /opt/senti || true
+      chown -R ubuntu:ubuntu /opt/senti
     fi
   - |
+    # ML service venv and deps
     cd /opt/senti/ml-model
-    docker build -t sa-ml:latest .
-    docker rm -f sa-ml || true
-    docker run -d --name sa-ml --restart unless-stopped -p 8001:8001 sa-ml:latest
+    python3 -m venv .venv
+    /opt/senti/ml-model/.venv/bin/pip install --upgrade pip
+    /opt/senti/ml-model/.venv/bin/pip install -r requirements.txt
   - |
+    # API service venv and deps
     cd /opt/senti/api
-    docker build -t sa-api:latest .
-    docker rm -f sa-api || true
-    docker run -d --name sa-api --restart unless-stopped \
-      -p 8000:8000 \
-      -e MONGODB_URL=${MONGODB_URL:-""} \
-      -e DATABASE_NAME=${DATABASE_NAME:-"sentiment"} \
-      -e ML_MODEL_URL=${ML_MODEL_URL:-"http://127.0.0.1:8001/analyze"} \
-      sa-api:latest
+    python3 -m venv .venv
+    /opt/senti/api/.venv/bin/pip install --upgrade pip
+    /opt/senti/api/.venv/bin/pip install -r requirements.txt
+  - |
+    # Enable and start services
+    systemctl daemon-reload
+    systemctl enable --now sa-ml.service
+    # API depends on ML; slight delay to let ML start first
+    sleep 5 || true
+    systemctl enable --now sa-api.service
 ```
+
+Note: First run can take a while as the ML model downloads Python packages and models; subsequent runs are faster.
 
 ### A4) Launch two App instances
 - Instantiate `tpl-app` twice → `app-1`, `app-2`.
